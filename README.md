@@ -3,3 +3,7 @@ The Is a Header Only Lib that Extends or replaces Std for cross os protablility(
 (Designed To Be Used As A Git Module)
 this makes it easy to to only realy on a clib to port depending projects
 NOTE: This dose not include the depening projects dependances
+
+## LICENSE
+
+the license is found in the LICENSE.md
