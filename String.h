@@ -100,7 +100,12 @@ template<typename T> struct BasicString : public lstd::Iterator<T>
     constexpr void append(const T* data, data_size size_in) noexcept
     {
         str_size += size_in;
+#if defined(__gnu_linux__) || defined(__linux__)
         strncat(this->str, data, size_in);
+#endif
+#if defined(WIN32) || defined(WIN64)
+        strcat_s(this->str, str_size, data);
+#endif
     }
 
     constexpr inline BasicString& operator+=(const BasicString &data_in) noexcept
