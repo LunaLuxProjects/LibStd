@@ -1,6 +1,7 @@
 #pragma once
+#define FORWARD_DEC
 #include <lstd/String.h>
-
+#undef FORWARD_DEC
 namespace lstd
 {
 template<typename T,typename U> struct BasicStringView

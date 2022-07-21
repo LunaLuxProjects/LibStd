@@ -6,39 +6,72 @@
 #include <lstd/Iterator.h>
 namespace lstd
 {
-template<typename Key, typename Value> struct ReadOnlyLookupTable: public lstd::Iterator<Value>
+template<typename Key, typename Value> struct TableEntry
+{
+    Key key;
+    Value value;
+    constexpr  TableEntry() noexcept 
+    {
+        memset(&key, 0, sizeof(Key));
+        memset(&value, 0, sizeof(Value));
+    }
+    constexpr TableEntry(const Key key, const Value value) noexcept
+        : key(key)
+        , value(value)
+    {
+    }
+
+    constexpr TableEntry &operator=(const TableEntry & entry) noexcept
+    {
+        this->key = entry.key;
+        this->value = entry.value;
+        return *this;
+    }
+
+    bool operator==(const Key &key_in) const noexcept
+    {
+        return key == key_in;
+    };
+};
+
+template<typename Key, typename Value>
+struct ReadOnlyLookupTable : public lstd::ForwardIterator<TableEntry<Key,Value>>
 {
   private:
-    struct LookUpTable
-    {
-      Key key;
-      Value value;
-      LookUpTable() noexcept = default;
-      LookUpTable(const Key key, const Value value) noexcept : key(key), value(value) {}
-
-      bool operator==(const Key& key) const noexcept { return this->key == key;};
-    }* table;
+    TableEntry<Key, Value> *table;
     data_size size_of_table = 0;
   public:
     ReadOnlyLookupTable() noexcept = default;
-    ReadOnlyLookupTable(std::initializer_list<LookUpTable> entries) noexcept 
+    ReadOnlyLookupTable(std::initializer_list<TableEntry<Key, Value>> entries) noexcept 
     {
-      table = new LookUpTable[(size_of_table = entries.size())];
-      data_size index = 0;
-      for(auto& entry : entries)
-        table[index++] = entry;
+         table = new TableEntry<Key, Value>[(size_of_table = entries.size())];
+         data_size index = 0;
+         for(auto& entry : entries)
+           table[index++] = entry;
     }
     ~ReadOnlyLookupTable() noexcept = default;
 
-    virtual constexpr data_size size() const noexcept override final
+    virtual data_size i_size() const noexcept override final
     {
-      return size_of_table;
+        return size_of_table;
     }
-    virtual constexpr const Value* begin() const noexcept override final
+
+    constexpr data_size size() const noexcept
+    {
+        return size_of_table;
+    }
+    
+    virtual constexpr TableEntry<Key, Value> *begin() noexcept override final
+    {
+        return table;
+    }
+
+    virtual constexpr const TableEntry<Key, Value> *begin() const noexcept override final
     {
       return table;
     }
-    virtual constexpr Value* cbegin() const noexcept  override final
+
+    virtual constexpr TableEntry<Key, Value> *cbegin() const noexcept override final
     {
       return table;
     }

@@ -22,4 +22,14 @@ namespace lstd
 
     constexpr inline data_size min(const data_size arg1,const data_size arg2) noexcept { return min<data_size>(arg1,arg2); }
     constexpr inline data_size max(const data_size arg1,const data_size arg2) noexcept { return max<data_size>(arg1,arg2); }
+
+    inline int strcpy(char* des, const char* src) noexcept
+    {
+#if defined(__gnu_linux__) || defined(__linux__)
+        return strcpy(des, src);
+#endif
+#if defined(WIN32) || defined(WIN64)
+        return strcpy_s(des, strlen(src), src);
+#endif
+    }
 }
