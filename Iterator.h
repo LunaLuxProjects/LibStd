@@ -5,10 +5,9 @@ namespace lstd
 template<typename T>
 struct Iterator
 {
-    typedef data_size size_type;
     typedef const T *const_iterator;
     typedef T *iterator;
-    virtual constexpr size_type size() const noexcept = 0;
+    virtual constexpr data_size size() const noexcept = 0;
     virtual constexpr const_iterator begin() const noexcept = 0;
     virtual constexpr iterator cbegin() const noexcept = 0;
     constexpr const_iterator end() const noexcept

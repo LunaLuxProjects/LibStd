@@ -3,9 +3,10 @@
 #include <initializer_list>
 #include <lstd/DataType.h>
 #include <lstd/Intrinsics.h>
+#include <lstd/Iterator.h>
 namespace lstd
 {
-template<typename Key, typename Value> struct ReadOnlyLookupTable
+template<typename Key, typename Value> struct ReadOnlyLookupTable: public lstd::Iterator<Value>
 {
   private:
     struct LookUpTable
@@ -29,6 +30,19 @@ template<typename Key, typename Value> struct ReadOnlyLookupTable
     }
     ~ReadOnlyLookupTable() noexcept = default;
 
+    virtual constexpr data_size size() const noexcept override final
+    {
+      return size_of_table;
+    }
+    virtual constexpr const Value* begin() const noexcept override final
+    {
+      return table;
+    }
+    virtual constexpr Value* cbegin() const noexcept  override final
+    {
+      return table;
+    }
+    
     const Value &find(const Key & key) const noexcept
     {
       for(data_size i = 0; i < size_of_table; i++)
