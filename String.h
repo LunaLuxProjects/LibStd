@@ -16,9 +16,18 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
     data_size str_size = 0;
     void new_string(data_size size,const T*new_str) noexcept
     {
-        str_size = size + 1;
-        str = static_cast<T *>(malloc(sizeof(T) * str_size));
-        lstd::strcpy(str, new_str);
+        str_size = size;
+        str = static_cast<T *>(malloc(str_size + 1));
+        memset(str, 0, str_size + 1);
+        strcpy(str, str_size + 1, new_str);
+    }
+    
+    void new_string_from_old(data_size size,const T*new_str) noexcept
+    {
+        str_size = size;
+        str = static_cast<T *>(malloc(str_size + 1));
+        memset(str, 0, str_size  + 1);
+        strncpy(str, str_size + 1,new_str,size);
     }
 
     void delete_string() noexcept
@@ -50,7 +59,7 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
 
     constexpr BasicString(const BasicString &other, data_size pos, data_size count)
     {
-        new_string(count != npos ? other.size() : count, other.begin() + pos);
+        new_string_from_old(count == npos ? other.size() : count, other.begin() + pos);
     }
 
     constexpr BasicString(const T *s, data_size count)
@@ -223,13 +232,13 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
 
     constexpr T& at(data_size pos)
     {
-        assert(pos >= this->size());
+        assert(pos <= this->size());
         return str[pos];
     }
 
     constexpr const T &at(data_size pos) const
     {
-        assert(pos >= this->size());
+        assert(pos <= this->size());
         return str[pos];
     }
 
@@ -280,17 +289,17 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
 
     virtual constexpr T *begin() noexcept override final
     {
-        return str;
+        return this->str;
     }
 
     virtual constexpr const T *begin() const noexcept override final
     {
-        return str;
+        return this->str;
     }
 
     virtual constexpr const T *cbegin() const noexcept override final
     {
-        return str;
+        return this->str;
     }
 
     virtual constexpr T *rbegin() noexcept override final
@@ -360,20 +369,20 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
     {
         data_size new_size = str_in.size() + this->size();
         T *new_str = static_cast<T *>(malloc(new_size));
-        lstd::strcpy(new_str, this->str);
-        lstd::strcpy(new_str + this->size() + 1, str_in.c_str());
+        strcpy(new_str,this->size(),this->str);
+        strcpy(new_str + this->size() + 1,str_in.size() , str_in.c_str());
         delete_string();
         new_string(new_size, new_str);
         free(new_str);
         return *this;
     }
 
-    constexpr BasicString &append(const BasicString &str, data_size pos, data_size count = npos)
+    constexpr BasicString &append(const BasicString &str_in, data_size pos, data_size count = npos)
     {
-        data_size new_size = (count != npos ? str.size() : count - pos) + this->size();
+        data_size new_size = (count != npos ? str_in.size() : count - pos) + this->size();
         T *new_str = static_cast<T *>(malloc(new_size));
-        lstd::strcpy(new_str, this->str);
-        lstd::strcpy(new_str + this->size() + 1, str.begin() + pos);
+        strcpy(new_str,this->size(),this->str);
+        strcpy(new_str + this->size() + 1,str_in.size() ,str_in.begin() + pos);
         delete_string();
         new_string(new_size, new_str);
         free(new_str);
@@ -384,8 +393,8 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
     {
         data_size new_size = count + this->size();
         T *new_str = static_cast<T *>(malloc(new_size));
-        lstd::strcpy(new_str, this->str);
-        lstd::strcpy(new_str + this->size() + 1, s);
+        strcpy(new_str,this->size(),this->str);
+        strcpy(new_str + this->size() + 1,count , s);
         delete_string();
         new_string(new_size, new_str);
         free(new_str);
@@ -396,8 +405,8 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
     {
         data_size new_size = strlen(s) + this->size();
         T *new_str = static_cast<T *>(malloc(new_size));
-        lstd::strcpy(new_str, this->str);
-        lstd::strcpy(new_str + this->size() + 1, s);
+        strcpy(new_str,this->size(),this->str);
+        strcpy(new_str + this->size() + 1,strlen(s), s);
         delete_string();
         new_string(new_size, new_str);
         free(new_str);
@@ -412,8 +421,8 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
     {
         data_size new_size = ilist.size() + this->size();
         T *new_str = static_cast<T *>(malloc(new_size));
-        lstd::strcpy(new_str, this->str);
-        lstd::strcpy(new_str + this->size() + 1, ilist.begin());
+        strcpy(new_str,this->size(),this->str);
+        strcpy(new_str + this->size() + 1,ilist.size() , ilist.begin());
         delete_string();
         new_string(new_size, new_str);
         free(new_str);
@@ -424,8 +433,8 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
     {
         data_size new_size = t.size() + this->size();
         T *new_str = static_cast<T *>(malloc(new_size));
-        lstd::strcpy(new_str, this->str);
-        lstd::strcpy(new_str + this->size() + 1, t.c_str());
+        strcpy(new_str,this->size(),this->str);
+        strcpy(new_str + this->size() + 1,t.size() , t.c_str());
         delete_string();
         new_string(new_size, new_str);
         free(new_str);
@@ -437,8 +446,8 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
     {
         data_size new_size = (count != npos ? t.size() : count - pos) + this->size();
         T *new_str = static_cast<T *>(malloc(new_size));
-        lstd::strcpy(new_str, this->str);
-        lstd::strcpy(new_str + this->size() + 1, t.begin() + pos);
+        strcpy(new_str,this->size(),this->str);
+        strcpy(new_str + this->size() + 1,t.size() , t.begin() + pos);
         delete_string();
         new_string(new_size, new_str);
         free(new_str);
@@ -545,7 +554,7 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
 
     constexpr BasicString substr(data_size pos = 0, data_size count = npos) const
     {
-        return BasicString(this->c_str(), pos, count);
+        return BasicString(*this, pos, count);
     }
 
     constexpr bool operator == (const BasicString &rhs) noexcept
@@ -557,6 +566,12 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
     {
         return compare(s);
     }
+
+    constexpr bool operator==(const T s) noexcept
+    {
+        return str[0] == s;
+    }
+
 
     constexpr bool operator != (const BasicString &rhs) noexcept
     {
@@ -585,14 +600,19 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
 
     constexpr data_size hash()
     {
-        const T *s = this->begin();
+        data_size temp_str_size = this->size() + 1;
+        T *s = static_cast<T*>(malloc(temp_str_size));
+        strcpy(s, temp_str_size, this->begin());
         data_size h = 37;
+        data_size i = 0;
         while (*s)
         {
             h = (h * 54059) ^ (s[0] * 76963);
             s++;
+            i++;
         }
-        return h % 86969;
+        free(s-i);
+        return h;
     }
 };
 typedef BasicString<char> string;
