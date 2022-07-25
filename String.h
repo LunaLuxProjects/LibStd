@@ -1,207 +1,193 @@
 #pragma once
+#include <assert.h>
+#include <initializer_list>
 #include <lstd/ClibLink.h>
 #include <lstd/DataType.h>
 #include <lstd/Iterator.h>
-#include <initializer_list>
-#include <assert.h>
+#include <lstd/SmartPointers.h>
 #include <string>
 namespace lstd
 {
 template<typename T, typename U> struct BasicStringView;
-    //FIXME: this is not c++20 compliend
-template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd::ReverseIterator<T>
+// FIXME: this is not c++20 compliend
+template<typename T>
+struct BasicString
+    : public lstd::ForwardIterator<T>
+    ,public lstd::ReverseIterator<T>
 {
-  private:
-    T *str;
-    data_size str_size = 0;
-    void new_string(data_size size,const T*new_str) noexcept
-    {
-        str_size = size;
-        str = static_cast<T *>(malloc(str_size + 1));
-        memset(str, 0, str_size + 1);
-        strcpy(str, str_size + 1, new_str);
-    }
-    
-    void new_string_from_old(data_size size,const T*new_str) noexcept
-    {
-        str_size = size;
-        str = static_cast<T *>(malloc(str_size + 1));
-        memset(str, 0, str_size  + 1);
-        strncpy(str, str_size + 1,new_str,size);
-    }
-
-    void delete_string() noexcept
-    {
-        memset(str, 0, str_size);
-        free(str);
-    }
+  protected:
+    using SinglePtr = lstd::pointers::SinglePtr<T>;
+    SinglePtr str;
   public:
     static const int64 npos{-1};
 
-    explicit constexpr BasicString() noexcept
-    {
-        new_string(0, "");
-    }
-
+    explicit constexpr BasicString() noexcept = default;
     constexpr BasicString(data_size count, T ch)
     {
-        T *temp  = static_cast<T *>(malloc(sizeof(T) * count));
+        T *temp = static_cast<T *>(malloc(sizeof(T) * count));
         for (data_size i = 0; i < count; i++)
             temp[i] = ch;
-        new_string(count, temp);
-        free(temp);
+        str.reset(temp);
     }
 
     constexpr BasicString(const BasicString &other, data_size pos)
+        : str(SinglePtr(other.begin() + pos, other.size() - pos))
     {
-        new_string(other.size() - pos, other.begin() + pos);
     }
 
     constexpr BasicString(const BasicString &other, data_size pos, data_size count)
+        : str(SinglePtr((T*)other.data() + pos, count == npos ? other.size() : count))
     {
-        new_string_from_old(count == npos ? other.size() : count, other.begin() + pos);
     }
 
     constexpr BasicString(const T *s, data_size count)
     {
-        new_string(count, s);
-    }
-    constexpr BasicString(const T *s)
-    {
-        new_string(strlen(s), s);
+        T *ptr = static_cast<T *>(malloc(count + 1));
+        memset(ptr, 0, count + 1);
+        memcpy_s(ptr, count + 1, s, count);
+        str.reset(ptr, count);
     }
 
-    //FIXME: "C-style string"
-    //template<class InputIt> 
-    //constexpr BasicString(InputIt first, InputIt last);
+    constexpr BasicString(const T *s)
+    {
+        data_size count = strlen(s);
+        T *ptr = static_cast<T *>(malloc(count + 1));
+        memset(ptr, 0, count + 1);
+        memcpy_s(ptr, count + 1, s, count);
+        str.reset(ptr, count);
+    }
+
+    // FIXME: "C-style string"
+    // template<class InputIt>
+    // constexpr BasicString(InputIt first, InputIt last);
 
     constexpr BasicString(const BasicString &other)
     {
-        new_string(other.size(), other.c_str());
+        str.reset(other.begin(),other.size());
     }
+
     constexpr BasicString(BasicString &&other)
     {
-        new_string(other.size(), other.c_str());
+        str.reset(other.str.self()->release());
     }
 
     constexpr BasicString(std::initializer_list<T> ilist)
     {
-        new_string(ilist.size(), ilist.begin());
+        str.reset(ilist.begin(), ilist.size());
     }
 
     explicit constexpr BasicString(const lstd::BasicStringView<BasicString<T>, T> &t)
     {
-            new_string(t.size(), t.begin());
+        str.reset(t.begin(), t.size());
     }
 
     constexpr BasicString(const lstd::BasicStringView<BasicString<T>, T> &t, data_size pos, data_size n)
     {
-        //FIXME: idk what n is in the std spec
-        new_string(t.size() - n, t.begin() + pos);
+        str.reset(t.begin() + pos, t.size() - n);
     }
 
     BasicString(std::nullptr_t) = delete;
+    constexpr BasicString &operator=(std::nullptr_t) = delete;
 
-    ~BasicString()
-    {
-        delete_string();
-    }
+    ~BasicString() = default;
 
     constexpr BasicString &operator=(const BasicString &other)
     {
-        new_string(other.size(), other.c_str());
+        str.reset(other.begin(), other.size());
         return *this;
     }
     constexpr BasicString &operator=(BasicString &&other) noexcept
     {
-        new_string(other.size(), other.c_str());
+        str.reset(other.str.self()->release());
         return *this;
     }
 
     constexpr BasicString &operator=(const T *s)
     {
-        new_string(strlen(s), s);
+
+        data_size count = strlen(s);
+        T *ptr = static_cast<T *>(malloc(count + 1));
+        memset(ptr, 0, count + 1);
+        memcpy_s(ptr, count + 1, s, count);
+        str.reset(ptr, count);
         return *this;
     }
 
     constexpr BasicString &operator=(T ch)
     {
-        new_string(1, &ch);
+        str.reset(new char[1]{ch},1);
         return *this;
     }
 
     constexpr BasicString &operator=(std::initializer_list<T> ilist)
     {
-        new_string(ilist.size(), ilist.begin());
+        str.reset(ilist.begin(), ilist.size());
         return *this;
     }
 
     template<class StringViewLike> constexpr BasicString &operator=(const StringViewLike &t)
     {
-        new_string(t.size(), t.begin());
+        str.reset(t.begin(),t.size());
         return *this;
     }
 
-    constexpr BasicString &operator=(std::nullptr_t) = delete;
-
-    constexpr T& operator[](data_size pos)
+    constexpr const  T &operator[](data_size pos) const noexcept
     {
         return str[pos];
     }
 
     constexpr BasicString &assign(data_size count, T ch)
     {
-        new_string(1, &ch);
+        str.reset(new char[1]{ch},1);
         return *this;
     }
 
     constexpr BasicString &assign(const BasicString &other)
     {
-        new_string(other.size(), other.c_str());
+        str = other.moveSinglePtr();
         return *this;
     }
 
     constexpr BasicString &assign(const BasicString &other, data_size pos, data_size count = npos)
     {
-        new_string(count, other.begin() + pos);
+        str.reset(other.begin() + pos, count);
         return *this;
     }
 
     constexpr BasicString &assign(BasicString &&other)
     {
-        new_string(other.size(), other.c_str());
+        str.reset(other.begin(), other.size());
         return *this;
     }
 
     constexpr BasicString &assign(const T *s, data_size count)
     {
-        new_string(count, s);
+        str.reset(s, count);
         return *this;
     }
     constexpr BasicString &assign(const T *s)
     {
-        new_string(strlen(s), s);
+        str.reset(s);
         return *this;
     }
     // FIXME: "C-style string"
-    //template<class InputIt> constexpr BasicString &assign(InputIt first, InputIt last);
+    // template<class InputIt> constexpr BasicString &assign(InputIt first, InputIt last);
     constexpr BasicString &assign(std::initializer_list<T> ilist)
     {
-        new_string(ilist.size(), ilist.begin());
+        str.reset(ilist.begin(), ilist.size());
         return *this;
     }
 
-
     constexpr BasicString &assign(const lstd::BasicStringView<BasicString<T>, T> &t)
     {
-        new_string(t.size(), t.begin());
+        str.reset(t.begin(), t.size());
         return *this;
     }
 
     constexpr BasicString &assign(const lstd::BasicStringView<BasicString<T>, T> &t, data_size pos,
                                   data_size count = npos)
     {
-        new_string(count, t.begin() + pos);
+        str.reset(t.begin() + pos, count);
         return *this;
     }
 
@@ -230,21 +216,16 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
         return assign(t);
     }
 
-    constexpr T& at(data_size pos)
+    constexpr T at(data_size pos)
     {
-        assert(pos <= this->size());
+        assert(pos <= size());
         return str[pos];
     }
 
-    constexpr const T &at(data_size pos) const
+    constexpr const T at(data_size pos) const
     {
-        assert(pos <= this->size());
+        assert(pos <= size());
         return str[pos];
-    }
-
-    constexpr const T &operator[](data_size pos) const
-    {
-        return at(pos);
     }
 
     constexpr T &front()
@@ -269,37 +250,37 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
 
     constexpr const T *data() const noexcept
     {
-        return str;
+        return str.get();
     }
 
     constexpr T *data() noexcept
     {
-        return str;
+        return str.get();
     }
 
     constexpr const T *c_str() const noexcept
     {
-        return str;
+        return str.get();
     }
 
     constexpr operator lstd::BasicStringView<BasicString<T>, T>() const noexcept
     {
-        return lstd::BasicStringView<BasicString<T>, T>(this->c_str(), this->size());
+        return lstd::BasicStringView<BasicString<T>, T>(c_str(), size());
     }
 
     virtual constexpr T *begin() noexcept override final
     {
-        return this->str;
+        return str.get();
     }
 
     virtual constexpr const T *begin() const noexcept override final
     {
-        return this->str;
+        return str.get();
     }
 
     virtual constexpr const T *cbegin() const noexcept override final
     {
-        return this->str;
+        return str.get();
     }
 
     virtual constexpr T *rbegin() noexcept override final
@@ -324,7 +305,7 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
 
     constexpr data_size size() const noexcept
     {
-        return str_size;
+        return str.size();
     }
 
     virtual data_size i_size() const noexcept override final
@@ -334,10 +315,10 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
 
     constexpr data_size length() const noexcept
     {
-        return str_size;
+        return size();
     }
 
-    //FIXME: constexpr data_size max_size() const noexcept;
+    // FIXME: constexpr data_size max_size() const noexcept;
 
     constexpr void reserve(data_size new_cap)
     {
@@ -350,118 +331,84 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
         data_size index = 0;
         for (data_size i = new_size; i != 0; i--)
             temp[++index] = str[i];
-        new_string(new_size, temp);
-        free(temp);
+        str.reset(temp);
     }
 
     constexpr data_size capacity() const noexcept
     {
-        return str_size;
+        return size();
     }
 
-    //FIXME: constexpr void shrink_to_fit()
+    // FIXME: constexpr void shrink_to_fit()
 
     constexpr void clear() noexcept
     {
-        memset(str, 0, str_size);
+        str.reset(nullptr,0);
     }
     constexpr BasicString &append(const BasicString &str_in)
     {
-        data_size new_size = str_in.size() + this->size();
-        T *new_str = static_cast<T *>(malloc(new_size));
-        strcpy(new_str,this->size(),this->str);
-        strcpy(new_str + this->size() + 1,str_in.size() , str_in.c_str());
-        delete_string();
-        new_string(new_size, new_str);
-        free(new_str);
-        return *this;
+        return append(str_in.begin(), str_in.size());
+    }
+
+    constexpr BasicString &append(const T *s)
+    {
+        return append(s,strlen(s));
     }
 
     constexpr BasicString &append(const BasicString &str_in, data_size pos, data_size count = npos)
     {
-        data_size new_size = (count != npos ? str_in.size() : count - pos) + this->size();
-        T *new_str = static_cast<T *>(malloc(new_size));
-        strcpy(new_str,this->size(),this->str);
-        strcpy(new_str + this->size() + 1,str_in.size() ,str_in.begin() + pos);
-        delete_string();
-        new_string(new_size, new_str);
-        free(new_str);
+        str.expand((count != npos ? str_in.size() : count - pos));
+        strcat_s(str.get() + size() - str_in.size(), str_in.size(), str_in.begin() + pos);
         return *this;
     }
 
     constexpr BasicString &append(const T *s, data_size count)
     {
-        data_size new_size = count + this->size();
-        T *new_str = static_cast<T *>(malloc(new_size));
-        strcpy(new_str,this->size(),this->str);
-        strcpy(new_str + this->size() + 1,count , s);
-        delete_string();
-        new_string(new_size, new_str);
-        free(new_str);
+        str.expand(count);
+        strcat_s(str.get() + size() - count, count + 1, s);
         return *this;
     }
 
-    constexpr BasicString &append(const T *s)
+    constexpr BasicString &append(const T ch)
     {
-        data_size new_size = strlen(s) + this->size();
-        T *new_str = static_cast<T *>(malloc(new_size));
-        strcpy(new_str,this->size(),this->str);
-        strcpy(new_str + this->size() + 1,strlen(s), s);
-        delete_string();
-        new_string(new_size, new_str);
-        free(new_str);
+        str.expand(1);
+        strcat_s(str.get() + size() - 1, 2, &ch);
         return *this;
     }
 
     // FIXME: "C-style string"
-    //template<class InputIt> 
-    //constexpr BasicString &append(InputIt first, InputIt last)
+    // template<class InputIt>
+    // constexpr BasicString &append(InputIt first, InputIt last)
 
     constexpr BasicString &append(std::initializer_list<T> ilist)
     {
-        data_size new_size = ilist.size() + this->size();
-        T *new_str = static_cast<T *>(malloc(new_size));
-        strcpy(new_str,this->size(),this->str);
-        strcpy(new_str + this->size() + 1,ilist.size() , ilist.begin());
-        delete_string();
-        new_string(new_size, new_str);
-        free(new_str);
+        str.expand(ilist.size());
+        strcat_s(str.get() + size() - ilist.size(), ilist.size(), ilist.begin());
         return *this;
     }
 
     constexpr BasicString &append(const lstd::BasicStringView<BasicString<T>, T> &t)
     {
-        data_size new_size = t.size() + this->size();
-        T *new_str = static_cast<T *>(malloc(new_size));
-        strcpy(new_str,this->size(),this->str);
-        strcpy(new_str + this->size() + 1,t.size() , t.c_str());
-        delete_string();
-        new_string(new_size, new_str);
-        free(new_str);
+        str.expand(t.size());
+        strcat_s(str.get() + size() - t.size(), t.size(), t.c_str());
         return *this;
     }
 
-    constexpr BasicString &append(const lstd::BasicStringView<BasicString<T>, T> &t, data_size pos,
-                                  data_size count = npos)
+    constexpr BasicString &append(const lstd::BasicStringView<BasicString<T>, T> &t, data_size pos, data_size count = npos)
     {
-        data_size new_size = (count != npos ? t.size() : count - pos) + this->size();
-        T *new_str = static_cast<T *>(malloc(new_size));
-        strcpy(new_str,this->size(),this->str);
-        strcpy(new_str + this->size() + 1,t.size() , t.begin() + pos);
-        delete_string();
-        new_string(new_size, new_str);
-        free(new_str);
+        str.expand((count != npos ? t.size() : count - pos));
+        strcat_s(str.get() + size() - t.size(), t.size(), t.begin() + pos);
         return *this;
     }
 
-    constexpr BasicString &operator+=(const BasicString & str_in)
+    constexpr BasicString &operator+=(const BasicString &str_in)
     {
         return append(str_in);
     }
 
     constexpr BasicString &operator+=(T ch)
     {
-        return append(&ch,1);
+        return append(ch);
     }
 
     constexpr BasicString &operator+=(const T *s)
@@ -481,26 +428,28 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
 
     constexpr int compare(const BasicString &str) const noexcept
     {
-        return strcmp(this->c_str(), str.c_str());
+        return strcmp(c_str(), str.c_str());
     }
-    //constexpr int compare(data_size pos1, data_size count1, const BasicString &str) const;
-    //constexpr int compare(data_size pos1, data_size count1, const BasicString &str, data_size pos2, data_size count2 = npos) const;
+    // constexpr int compare(data_size pos1, data_size count1, const BasicString &str) const;
+    // constexpr int compare(data_size pos1, data_size count1, const BasicString &str, data_size pos2, data_size count2
+    // = npos) const;
     constexpr int compare(const T *s) const
     {
-        return strcmp(this->c_str(), s);
+        return strcmp(c_str(), s);
     }
-   // constexpr int compare(data_size pos1, data_size count1, const T *s) const;
-    //constexpr int compare(data_size pos1, data_size count1, const T *s, data_size count2) const; 
+    // constexpr int compare(data_size pos1, data_size count1, const T *s) const;
+    // constexpr int compare(data_size pos1, data_size count1, const T *s, data_size count2) const;
     constexpr int compare(const lstd::BasicStringView<BasicString<T>, T> &t) const
     {
-        return strcmp(this->c_str(), t.c_str());
+        return strcmp(c_str(), t.c_str());
     }
-    //template<class StringViewLike>
-    //constexpr int compare(data_size pos1, data_size count1, const StringViewLike &t) const;
-    //template<class StringViewLike>
-    //constexpr int compare(data_size pos1, data_size count1, const StringViewLike &t, data_size pos2, data_size count2 = npos) const;
+    // template<class StringViewLike>
+    // constexpr int compare(data_size pos1, data_size count1, const StringViewLike &t) const;
+    // template<class StringViewLike>
+    // constexpr int compare(data_size pos1, data_size count1, const StringViewLike &t, data_size pos2, data_size count2
+    // = npos) const;
 
-    constexpr bool starts_with(lstd::BasicStringView<BasicString<T>,T> sv) const noexcept
+    constexpr bool starts_with(lstd::BasicStringView<BasicString<T>, T> sv) const noexcept
     {
         for (data_size i = 0; i < sv.size(); i++)
             if (str[i] != sv[i])
@@ -524,45 +473,47 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
     constexpr bool ends_with(lstd::BasicStringView<BasicString<T>, T> sv) const noexcept
     {
         for (data_size i = sv.size(); i != 0; i--)
-            if (str[this->size() - i] != sv[i])
+            if (str[size() - i] != sv[i])
                 return false;
         return true;
     }
 
     constexpr bool ends_with(T c) const noexcept
     {
-        return str[this->size()] == c;
+        return str[size()] == c;
     }
 
     constexpr bool ends_with(const T *s) const
     {
         for (data_size i = str(s); i != 0; i--)
-            if (str[this->size() - i] != s[i])
+            if (str[size() - i] != s[i])
                 return false;
         return true;
     }
 
-    //constexpr basic_string &replace(const_iterator first, const_iterator last, const basic_string &str);
-    //constexpr basic_string &replace(size_type pos, size_type count, const basic_string &str, size_type pos2, size_type count2 = npos);
-    //template< class InputIt >  constexpr basic_string &replace(const_iterator first, const_iterator last, InputIt first2, InputIt last2);
-    //constexpr basic_string& replace( const_iterator first, const_iterator last,const CharT* cstr, size_type count2 );
-    //constexpr basic_string& replace( const_iterator first, const_iterator last,const CharT* cstr );
-    //constexpr basic_string& replace( const_iterator first, const_iterator last,size_type count2, CharT ch );
-    // constexpr basic_string &replace(const_iterator first, const_iterator last, std::initializer_list<CharT> ilist);
-    //template < class StringViewLike > constexpr basic_string &replace(const_iterator first, const_iterator last, const StringViewLike &t);
-    //template < class StringViewLike > constexpr basic_string &replace(size_type pos, size_type count, const StringViewLike &t, size_type pos2, size_type count2 = npos);
+    // constexpr basic_string &replace(const_iterator first, const_iterator last, const basic_string &str);
+    // constexpr basic_string &replace(size_type pos, size_type count, const basic_string &str, size_type pos2,
+    // size_type count2 = npos); template< class InputIt >  constexpr basic_string &replace(const_iterator first,
+    // const_iterator last, InputIt first2, InputIt last2); constexpr basic_string& replace( const_iterator first,
+    // const_iterator last,const CharT* cstr, size_type count2 ); constexpr basic_string& replace( const_iterator first,
+    // const_iterator last,const CharT* cstr ); constexpr basic_string& replace( const_iterator first, const_iterator
+    // last,size_type count2, CharT ch );
+    //  constexpr basic_string &replace(const_iterator first, const_iterator last, std::initializer_list<CharT> ilist);
+    // template < class StringViewLike > constexpr basic_string &replace(const_iterator first, const_iterator last,
+    // const StringViewLike &t); template < class StringViewLike > constexpr basic_string &replace(size_type pos,
+    // size_type count, const StringViewLike &t, size_type pos2, size_type count2 = npos);
 
     constexpr BasicString substr(data_size pos = 0, data_size count = npos) const
     {
         return BasicString(*this, pos, count);
     }
 
-    constexpr bool operator == (const BasicString &rhs) noexcept
+    constexpr bool operator==(const BasicString &rhs) noexcept
     {
         return compare(rhs);
     }
 
-    constexpr bool operator==(const T* s) noexcept
+    constexpr bool operator==(const T *s) noexcept
     {
         return compare(s);
     }
@@ -572,37 +523,34 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
         return str[0] == s;
     }
 
-
-    constexpr bool operator != (const BasicString &rhs) noexcept
+    constexpr bool operator!=(const BasicString &rhs) noexcept
     {
         return !compare(rhs);
     }
 
-    constexpr bool operator < (const BasicString &rhs) noexcept
+    constexpr bool operator<(const BasicString &rhs) noexcept
     {
-       return this->size() < rhs.size();
+        return size() < rhs.size();
     }
 
-    constexpr bool operator > (const BasicString &rhs) noexcept
+    constexpr bool operator>(const BasicString &rhs) noexcept
     {
-        return this->size() > rhs.size();
+        return size() > rhs.size();
     }
 
-    constexpr bool operator <= (const BasicString &rhs) noexcept
+    constexpr bool operator<=(const BasicString &rhs) noexcept
     {
-        return this->size() <= rhs.size();
+        return size() <= rhs.size();
     }
 
-    constexpr bool operator >= (const BasicString &rhs) noexcept
+    constexpr bool operator>=(const BasicString &rhs) noexcept
     {
-        return this->size() >= rhs.size();
+        return size() >= rhs.size();
     }
 
-    constexpr data_size hash()
+constexpr data_size hash()
     {
-        data_size temp_str_size = this->size() + 1;
-        T *s = static_cast<T*>(malloc(temp_str_size));
-        strcpy(s, temp_str_size, this->begin());
+        T *s = this->begin();
         data_size h = 37;
         data_size i = 0;
         while (*s)
@@ -611,7 +559,7 @@ template<typename T> struct BasicString : public lstd::ForwardIterator<T>, lstd:
             s++;
             i++;
         }
-        free(s-i);
+        s = s - i;
         return h;
     }
 };
@@ -620,7 +568,7 @@ typedef BasicString<wchar_t> wstring;
 
 template<typename T> struct hash
 {
-    [[nodiscard]] data_size operator()(T  str) const noexcept
+    [[nodiscard]] data_size operator()(T str) const noexcept
     {
         return str.hash();
     }
